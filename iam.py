@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, render_template
 import requests
 import os
 import logging
@@ -9,38 +9,47 @@ app = Flask(__name__)
 # Load environment variables from the .env file
 load_dotenv()
 
-# Access the access_token from the environment
+# Access the access token from the environment
 access_token = os.getenv('ACCESS_TOKEN')
 
-# Add logging
+# Configure logging
 logging.basicConfig(filename='app.log', level=logging.INFO)
 
 @app.route('/')
-def index():
-    app.logger.info('Redirection is Successful')
-    return 'Redirection is Successful'
+def home():
+    return render_template('redirect.html')
 
-@app.route('/profile_data')
-def get_profile_data():
-    # Get user ID
-    response = requests.get(f'https://graph.instagram.com/me?fields=id&access_token={access_token}')
-    
+@app.route('/profile')
+def get_instagram_profile_data():
+    try:
+        # Get user ID
+        user_id = get_user_id()
+
+        if user_id:
+            profile_data = get_user_profile(user_id)
+            if profile_data:
+                return jsonify(profile_data)
+            else:
+                raise Exception('Failed to retrieve profile data from Instagram API')
+        else:
+            raise Exception('Failed to get user ID from Instagram API')
+
+    except Exception as e:
+        # Log the error and return an error response
+        app.logger.error(f'Error: {str(e)}')
+        return jsonify({'error': str(e)})
+
+def get_user_id():
+    response = requests.get(f'https://graph.instagram.com/v13.0/me?fields=id&access_token={access_token}')
     if response.status_code == 200:
-        user_id = response.json()['id']
-    else:
-        app.logger.error('Failed to get user ID from Instagram API')
-        return 'Error: Could not retrieve user ID'
+        return response.json().get('id')
+    return None
 
-    # Get profile data
-    response = requests.get(f'https://graph.instagram.com/{user_id}?fields=id,username,account_type,media_count,followers_count&access_token={access_token}')
-
+def get_user_profile(user_id):
+    response = requests.get(f'https://graph.instagram.com/v13.0/{user_id}?fields=id,username,account_type,media_count,followers_count&access_token={access_token}')
     if response.status_code == 200:
-        profile_data = response.json()
-        app.logger.info('Profile data retrieved successfully')
-        return jsonify(profile_data)
-    else:
-        app.logger.error('Failed to retrieve profile data from Instagram API')
-        return 'Error: Could not retrieve profile data'
+        return response.json()
+    return None
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=1111, debug=True)
