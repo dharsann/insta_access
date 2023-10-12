@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request, render_template
 import requests
 import os
 import logging
+from functools import lru_cache
 from dotenv import load_dotenv
 
 app = Flask(__name__)
@@ -14,6 +15,9 @@ access_token = os.getenv('ACCESS_TOKEN')
 
 # Configure logging
 logging.basicConfig(filename='app.log', level=logging.INFO)
+
+# Use lru_cache as a simple caching mechanism
+@lru_cache(maxsize=100)
 
 @app.route('/')
 def home():
